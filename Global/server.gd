@@ -211,9 +211,11 @@ func _send_state(id):
 	var state = {"type": "state", "players": {}}
 	for pid in players:
 		if players[pid]["online"]:
+			var rot = player_rotations.get(pid, 0.0)
+			print("SERVER pid=", pid, " rot=", rot)
 			state["players"][str(pid)] = {
 				"pos": [players[pid]["pos"].x, players[pid]["pos"].y, players[pid]["pos"].z],
-				"rot": player_rotations.get(pid, 0.0)
+				"rot": rot
 			}
 	var data = JSON.stringify(state).to_utf8_buffer()
 	if id == -1:
