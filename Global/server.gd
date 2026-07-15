@@ -14,6 +14,8 @@ const MOVE_SPEED = 100.0
 const FRICTION = 0.92
 const MAX_SPEED = 10000.0
 
+const JUMP_FORCE = 15.0
+
 func _ready():
 	var err = tcp_server.listen(8000)
 	if err == OK:
@@ -141,6 +143,7 @@ func _parse_frame(buffer):
 
 func _generate_accept_key(key):
 	var combined = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+	@warning_ignore("shadowed_global_identifier")
 	var hash = combined.sha1_buffer()
 	return Marshalls.raw_to_base64(hash)
 
@@ -170,6 +173,10 @@ func _handle_message(id, msg):
 			var player_id = peers[id]["player_id"]
 			if player_id != -1:
 				player_rotations[player_id] = msg.get("yaw", 0.0)
+		"jump":
+			var player_id = peers[id]["player_id"]
+			if player_id != -1 and players[player_id]["pos"].y <= 0.1:
+				players[player_id]["vel"].y = JUMP_FORCE
 		"request_state":
 			_send_state(id)
 
