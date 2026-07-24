@@ -1,0 +1,41 @@
+[gd_scene load_steps=6 format=3 uid="uid://bhiarsjsj6b0g"]
+
+[ext_resource type="Script" uid="uid://pdpuojk6xth3" path="res://Maps/Level01/level_01.gd" id="1_lgdv4"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_lgdv4"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_30gge"]
+height = 1.0
+radius = 10.0
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_lgdv4"]
+size = Vector3(100, 1, 100)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1nfv0"]
+size = Vector3(1, 100, 100)
+
+[node name="Level01" type="Node3D"]
+script = ExtResource("1_lgdv4")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
+physics_material_override = SubResource("PhysicsMaterial_lgdv4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+shape = SubResource("CylinderShape3D_30gge")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.6946584, 0.7193398, 1.0351217e-08, -0.2636389, 0.25459313, 0.9304176, 0.6692864, -0.64632237, 0.3665012, 4, 15.751837, 0.741)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="Area3D" type="Area3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+shape = SubResource("BoxShape3D_lgdv4")
+
+[node name="CollisionShape3D2" type="CollisionShape3D" parent="Area3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 50, 0)
+shape = SubResource("BoxShape3D_1nfv0")
+
+[connection signal="body_entered" from="Area3D" to="." method="_on_area_3d_body_entered"]

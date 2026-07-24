@@ -1,3 +1,10 @@
-[gd_scene format=3 uid="uid://bgm67uys876fj"]
+[gd_scene load_steps=2 format=3 uid="uid://bgm67uys876fj"]
 
-[node name="Start" type="Node2D"]
+[ext_resource type="PackedScene" uid="uid://bhiarsjsj6b0g" path="res://Maps/Level01/Level01.tscn" id="1_7k7ra"]
+
+[node name="Start" type="Node3D"]
+
+[node name="Level01" parent="." instance=ExtResource("1_7k7ra")]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(-0.97827446, 0, 0.20731403, 0, 1, 0, -0.20731403, 0, -0.97827446, 3.9645634, 24.13621, -28.230267)

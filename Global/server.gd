@@ -10,18 +10,29 @@ var uid_to_id = {}
 var next_id = 1
 
 const GRAVITY = -9.8
-const MOVE_SPEED = 100.0
+const MOVE_SPEED = 50.0
 const FRICTION = 0.92
-const MAX_SPEED = 10000.0
+const MAX_SPEED = 50.0
 
-const JUMP_FORCE = 15.0
+const JUMP_FORCE = 5.0
+
+
+var map_scene = preload("res://Maps/Level01/Level01.tscn")
+var map_root: Node3D
+var player_bodies = {}  # pid -> CharacterBody3D
 
 func _ready():
+	map_root = map_scene.instantiate()
+	add_child(map_root)
+	print("🗺 Карта загружена")
+	
 	var err = tcp_server.listen(8000)
 	if err == OK:
 		print("🟢 Сервер запущен на порту 8000")
 	else:
 		print("❌ Ошибка: ", err)
+	
+	
 
 func _process(delta):
 	while tcp_server.is_connection_available():
@@ -48,6 +59,11 @@ func _process(delta):
 			continue
 		
 		if p["tcp"].get_available_bytes() > 0:
+			
+			if p["buffer"].size() > 0 and p["buffer"][0] & 0x0F > 0x09:
+				print("⚠ Мусор в буфере, сброс")
+				p["buffer"] = PackedByteArray()
+			
 			var size = p["tcp"].get_available_bytes()
 			var chunk = p["tcp"].get_data(size)[1]
 			p["buffer"].append_array(chunk)
@@ -76,7 +92,12 @@ func _process(delta):
 						print("🤝 Handshake done: ", id)
 			
 			if p["handshake_done"]:
-				while p["buffer"].size() > 0:
+				while p["buffer"].size() >= 2:
+					var first_byte = p["buffer"][0]
+					var opcode = first_byte & 0x0F
+					if opcode > 0x0A or (first_byte & 0x80) == 0:
+						p["buffer"] = p["buffer"].slice(1)
+						continue
 					var frame = _parse_frame(p["buffer"])
 					if frame == null:
 						break
@@ -127,10 +148,11 @@ func _parse_frame(buffer):
 		mask_key = buffer.slice(pos, pos + 4)
 		pos += 4
 	
-	if buffer.size() < pos + length:
+	var total_len = pos + length
+	if buffer.size() < total_len:
 		return null
 	
-	var payload = buffer.slice(pos, pos + length)
+	var payload = buffer.slice(pos, total_len)
 	if masked:
 		for i in range(payload.size()):
 			payload[i] ^= mask_key[i % 4]
@@ -138,7 +160,7 @@ func _parse_frame(buffer):
 	return {
 		"opcode": opcode,
 		"payload": payload,
-		"total_len": pos + length
+		"total_len": total_len
 	}
 
 func _generate_accept_key(key):
@@ -151,11 +173,14 @@ func _disconnect(id):
 	if not peers.has(id):
 		return
 	print("🔴 Клиент отключился: ", id)
-	if peers[id]["player_id"] != -1:
-		var player_id = peers[id]["player_id"]
+	var player_id = peers[id].get("player_id", -1)
+	if player_id != -1 and players.has(player_id):
 		players[player_id]["online"] = false
+		if player_bodies.has(player_id):
+			player_bodies[player_id].queue_free()
+			player_bodies.erase(player_id)
 	peers.erase(id)
-
+	
 func _handle_message(id, msg):
 	match msg["type"]:
 		"restore":
@@ -174,9 +199,17 @@ func _handle_message(id, msg):
 			if player_id != -1:
 				player_rotations[player_id] = msg.get("yaw", 0.0)
 		"jump":
+			print("JUMP от клиента id=", id)
 			var player_id = peers[id]["player_id"]
-			if player_id != -1 and players[player_id]["pos"].y <= 0.1:
-				players[player_id]["vel"].y = JUMP_FORCE
+			print("player_id=", player_id)
+			if player_id != -1 and player_bodies.has(player_id):
+				var body = player_bodies[player_id]
+				print("is_on_floor=", body.is_on_floor())
+				if body.is_on_floor():
+					var vel = body.velocity
+					vel.y = JUMP_FORCE
+					body.velocity = vel
+					print("Прыжок!")
 		"request_state":
 			_send_state(id)
 
@@ -187,6 +220,20 @@ func _handle_restore(id, msg):
 		peers[id]["player_id"] = player_id
 		peers[id]["uid"] = uid
 		players[player_id]["online"] = true
+		
+		# Пересоздаём тело если было удалено
+		if not player_bodies.has(player_id):
+			var body = CharacterBody3D.new()
+			var shape = CapsuleShape3D.new()
+			shape.radius = 0.3
+			shape.height = 1.0
+			var col = CollisionShape3D.new()
+			col.shape = shape
+			body.add_child(col)
+			add_child(body)
+			body.global_position = players[player_id]["pos"]
+			player_bodies[player_id] = body
+		
 		print("🔄 Игрок восстановлен: ID=", player_id)
 		_send_assign_id(id, player_id, uid)
 	else:
@@ -198,6 +245,20 @@ func _create_new_player(id):
 	var uid = str(randi()).substr(0, 8)
 	peers[id]["player_id"] = player_id
 	peers[id]["uid"] = uid
+	
+	# Создаём CharacterBody3D для физики
+	var body = CharacterBody3D.new()
+	var shape = CapsuleShape3D.new()
+	shape.radius = 0.3
+	shape.height = 1.0
+	var col = CollisionShape3D.new()
+	col.shape = shape
+	body.add_child(col)
+	add_child(body)
+	body.global_position = Vector3(0, 15+next_id, 0)
+	
+	player_bodies[player_id] = body
+	
 	players[player_id] = {
 		"pos": Vector3.ZERO,
 		"vel": Vector3.ZERO,
@@ -219,7 +280,7 @@ func _send_state(id):
 	for pid in players:
 		if players[pid]["online"]:
 			var rot = player_rotations.get(pid, 0.0)
-			print("SERVER pid=", pid, " rot=", rot)
+			#print("SERVER pid=", pid, " rot=", rot)
 			state["players"][str(pid)] = {
 				"pos": [players[pid]["pos"].x, players[pid]["pos"].y, players[pid]["pos"].z],
 				"rot": rot
@@ -252,21 +313,32 @@ func _game_loop(delta):
 	for pid in players:
 		if not players[pid]["online"]:
 			continue
+		
+		var body = player_bodies[pid]
+		if body == null:
+			continue
+		
 		var move_x = player_inputs.get(pid, {}).get("move_x", 0.0)
 		var move_z = player_inputs.get(pid, {}).get("move_z", 0.0)
-		players[pid]["vel"].x += move_x * MOVE_SPEED * delta
-		players[pid]["vel"].z += move_z * MOVE_SPEED * delta
-		players[pid]["vel"].x *= FRICTION
-		players[pid]["vel"].z *= FRICTION
-		var speed = sqrt(players[pid]["vel"].x**2 + players[pid]["vel"].z**2)
+		
+		var vel = body.velocity
+		vel.x += move_x * MOVE_SPEED * delta
+		vel.z += move_z * MOVE_SPEED * delta
+		vel.x *= FRICTION
+		vel.z *= FRICTION
+		
+		var speed = sqrt(vel.x**2 + vel.z**2)
 		if speed > MAX_SPEED:
-			players[pid]["vel"].x = (players[pid]["vel"].x / speed) * MAX_SPEED
-			players[pid]["vel"].z = (players[pid]["vel"].z / speed) * MAX_SPEED
-		players[pid]["pos"].x += players[pid]["vel"].x * delta
-		players[pid]["pos"].z += players[pid]["vel"].z * delta
-		players[pid]["vel"].y += GRAVITY * delta
-		players[pid]["pos"].y += players[pid]["vel"].y * delta
-		if players[pid]["pos"].y < 0:
-			players[pid]["pos"].y = 0
-			players[pid]["vel"].y = 0
+			vel.x = (vel.x / speed) * MAX_SPEED
+			vel.z = (vel.z / speed) * MAX_SPEED
+		
+		if not body.is_on_floor():
+			vel.y += GRAVITY * delta
+		
+		body.velocity = vel
+		body.move_and_slide()
+		
+		players[pid]["pos"] = body.global_position
+		players[pid]["vel"] = body.velocity
+	
 	_send_state(-1)
