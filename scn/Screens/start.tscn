@@ -1,10 +1,29 @@
-[gd_scene load_steps=2 format=3 uid="uid://bgm67uys876fj"]
+[gd_scene load_steps=4 format=3 uid="uid://bgm67uys876fj"]
 
 [ext_resource type="PackedScene" uid="uid://bhiarsjsj6b0g" path="res://Maps/Level01/Level01.tscn" id="1_7k7ra"]
+[ext_resource type="PackedScene" uid="uid://ccgc3h3olh30h" path="res://scn/Light/light.tscn" id="2_oy63o"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_oy63o"]
+top_radius = 35.756
+bottom_radius = 0.7
+height = 27.641
 
 [node name="Start" type="Node3D"]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.569183, 16.707031, 0)
+visible = false
+mesh = SubResource("CylinderMesh_oy63o")
+skeleton = NodePath("../Camera3D")
 
 [node name="Level01" parent="." instance=ExtResource("1_7k7ra")]
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(-0.97827446, 0, 0.20731403, 0, 1, 0, -0.20731403, 0, -0.97827446, 3.9645634, 24.13621, -28.230267)
+transform = Transform3D(-0.9549216, -0.14028512, 0.26161966, 0, 0.8812952, 0.47256616, -0.29685816, 0.45126364, -0.8415678, 3.062027, 17.37938, -13.966679)
+
+[node name="Light" parent="." instance=ExtResource("2_oy63o")]
+
+[node name="DirectionalLight3D" parent="Light" index="0"]
+transform = Transform3D(0.6946584, 0.7193398, 9.983435e-09, -0.2636389, 0.25459313, 0.9304176, 0.6692864, -0.64632237, 0.3665012, 4, 100.64503, 0.741)
+
+[editable path="Light"]

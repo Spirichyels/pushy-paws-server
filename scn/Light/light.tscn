@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://ccgc3h3olh30h"]
+
+[ext_resource type="Environment" uid="uid://bp4o54oqtpief" path="res://Textures/3dSky/level_1_Environment.tres" id="1_qffsy"]
+
+[node name="Light" type="Node"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.6946584, 0.7193398, 2.0702434e-08, -0.2636389, 0.25459313, 0.9304176, 0.6692864, -0.64632237, 0.3665012, 4, 15.751837, 0.741)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("1_qffsy")
